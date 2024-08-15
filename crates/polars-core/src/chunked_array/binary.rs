@@ -1,3 +1,5 @@
+use std::hash::BuildHasher;
+
 use polars_utils::aliases::PlRandomState;
 use polars_utils::hashing::BytesHash;
 use rayon::prelude::*;

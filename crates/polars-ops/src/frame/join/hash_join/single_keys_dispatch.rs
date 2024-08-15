@@ -1,3 +1,5 @@
+use std::hash::BuildHasher;
+
 use arrow::array::PrimitiveArray;
 use polars_core::series::BitRepr;
 use polars_core::utils::split;

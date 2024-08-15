@@ -1,3 +1,6 @@
+use hashbrown::HashMap;
+use std::hash::BuildHasher;
+
 use super::*;
 
 pub fn create_categorical_chunked_listbuilder(
@@ -75,7 +78,7 @@ impl ListBuilderTrait for ListEnumCategoricalChunkedBuilder {
 
 struct ListLocalCategoricalChunkedBuilder {
     inner: ListPrimitiveChunkedBuilder<UInt32Type>,
-    idx_lookup: PlHashMap<KeyWrapper, ()>,
+    idx_lookup: HashMap<KeyWrapper, (), PlFixedState>,
     ordering: CategoricalOrdering,
     categories: MutablePlString,
     categories_hash: u128,
@@ -86,8 +89,8 @@ struct KeyWrapper(u32);
 
 impl ListLocalCategoricalChunkedBuilder {
     #[inline]
-    pub fn get_hash_builder() -> PlRandomState {
-        PlRandomState::with_seed(0)
+    pub fn get_hash_builder() -> PlFixedState {
+        PlFixedState::with_seed(0)
     }
 
     pub(super) fn new(
@@ -104,7 +107,7 @@ impl ListLocalCategoricalChunkedBuilder {
                 values_capacity,
                 DataType::UInt32,
             ),
-            idx_lookup: PlHashMap::with_capacity_and_hasher(
+            idx_lookup: HashMap::with_capacity_and_hasher(
                 capacity,
                 ListLocalCategoricalChunkedBuilder::get_hash_builder(),
             ),

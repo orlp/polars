@@ -1,5 +1,9 @@
-pub type PlRandomState = ahash::RandomState;
-pub type PlRandomStateQuality = ahash::RandomState;
+// pub type PlRandomState = ahash::RandomState;
+// pub type PlRandomStateQuality = ahash::RandomState;
+pub type PlRandomState = foldhash::fast::RandomState;
+pub type PlFixedState = foldhash::fast::FixedState;
+pub type PlRandomStateQuality = foldhash::quality::RandomState;
+pub type PlFixedStateQuality = foldhash::quality::FixedState;
 
 pub type PlHashMap<K, V> = hashbrown::HashMap<K, V, PlRandomState>;
 pub type PlHashSet<V> = hashbrown::HashSet<V, PlRandomState>;

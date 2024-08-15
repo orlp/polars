@@ -1,3 +1,5 @@
+use std::hash::BuildHasher;
+
 use arrow::array::{MutablePrimitiveArray, PrimitiveArray};
 use arrow::legacy::utils::CustomIterTools;
 use polars_utils::hashing::hash_to_partition;

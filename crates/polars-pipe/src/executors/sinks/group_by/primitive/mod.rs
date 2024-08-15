@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
+use std::hash::{Hash, Hasher, BuildHasher};
 use std::sync::Mutex;
 
 use arrow::legacy::is_valid::IsValid;

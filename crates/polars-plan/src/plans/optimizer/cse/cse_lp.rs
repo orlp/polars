@@ -1,3 +1,5 @@
+use std::hash::BuildHasher;
+
 use hashbrown::hash_map::RawEntryMut;
 
 use super::*;
@@ -16,7 +18,7 @@ mod identifier_impl {
     pub(super) struct Identifier {
         inner: Option<u64>,
         last_node: Option<IRNode>,
-        hb: PlRandomState,
+        hb: PlFixedState,
     }
 
     impl Identifier {
@@ -47,7 +49,7 @@ mod identifier_impl {
             Self {
                 inner: None,
                 last_node: None,
-                hb: PlRandomState::with_seed(0),
+                hb: PlFixedState::with_seed(0),
             }
         }
 

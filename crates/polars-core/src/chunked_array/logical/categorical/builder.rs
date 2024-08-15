@@ -1,6 +1,8 @@
+use std::hash::BuildHasher;
+
 use arrow::array::*;
 use arrow::legacy::trusted_len::TrustedLenPush;
-use hashbrown::hash_map::Entry;
+use hashbrown::{HashMap, hash_map::Entry};
 use polars_utils::iter::EnumerateIdxTrait;
 
 use crate::hashing::_HASHMAP_INIT_SIZE;
@@ -17,7 +19,7 @@ pub struct CategoricalChunkedBuilder {
     ordering: CategoricalOrdering,
     categories: MutablePlString,
     // hashmap utilized by the local builder
-    local_mapping: PlHashMap<KeyWrapper, ()>,
+    local_mapping: HashMap<KeyWrapper, (), PlFixedState>,
 }
 
 impl CategoricalChunkedBuilder {
@@ -27,7 +29,7 @@ impl CategoricalChunkedBuilder {
             name: name.to_string(),
             ordering,
             categories: MutablePlString::with_capacity(_HASHMAP_INIT_SIZE),
-            local_mapping: PlHashMap::with_capacity_and_hasher(
+            local_mapping: HashMap::with_capacity_and_hasher(
                 capacity / 10,
                 StringCache::get_hash_builder(),
             ),

@@ -1452,6 +1452,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+name = "foldhash"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4deb59dd6330afa472c000b86c0c9ada26274836eb59563506c3e34e4bb9a819"
+
+[[package]]
 name = "foreign_vec"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2923,7 +2929,6 @@ dependencies = [
 name = "polars-arrow"
 version = "0.41.3"
 dependencies = [
- "ahash",
  "arrow-array",
  "arrow-buffer",
  "arrow-data",
@@ -3067,7 +3072,6 @@ dependencies = [
 name = "polars-expr"
 version = "0.41.3"
 dependencies = [
- "ahash",
  "bitflags",
  "once_cell",
  "polars-arrow",
@@ -3141,7 +3145,6 @@ dependencies = [
 name = "polars-json"
 version = "0.41.3"
 dependencies = [
- "ahash",
  "chrono",
  "chrono-tz",
  "fallible-streaming-iterator",
@@ -3211,7 +3214,6 @@ dependencies = [
 name = "polars-ops"
 version = "0.41.3"
 dependencies = [
- "ahash",
  "aho-corasick",
  "argminmax",
  "base64 0.22.1",
@@ -3246,7 +3248,6 @@ dependencies = [
 name = "polars-parquet"
 version = "0.41.3"
 dependencies = [
- "ahash",
  "async-stream",
  "base64 0.22.1",
  "brotli",
@@ -3302,7 +3303,6 @@ dependencies = [
 name = "polars-plan"
 version = "0.41.3"
 dependencies = [
- "ahash",
  "bitflags",
  "bytemuck",
  "chrono",
@@ -3415,6 +3415,7 @@ dependencies = [
  "ahash",
  "bytemuck",
  "bytes",
+ "foldhash",
  "hashbrown",
  "indexmap",
  "memmap2",
@@ -3512,7 +3513,6 @@ dependencies = [
 name = "py-polars"
 version = "1.5.0"
 dependencies = [
- "ahash",
  "arboard",
  "built",
  "bytemuck",

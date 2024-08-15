@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::hash::{Hash, BuildHasher};
 
 use polars_core::export::_boost_hash_combine;
 use polars_core::export::rayon::prelude::*;

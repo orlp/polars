@@ -1,3 +1,4 @@
+use std::hash::BuildHasher;
 use hashbrown::hash_map::RawEntryMut;
 use polars_utils::vec::CapacityByFactor;
 
@@ -44,7 +45,7 @@ impl ProjectionExprs {
 pub(super) struct Identifier {
     inner: Option<u64>,
     last_node: Option<AexprNode>,
-    hb: PlRandomState,
+    hb: PlFixedState,
 }
 
 impl Identifier {
@@ -52,7 +53,7 @@ impl Identifier {
         Self {
             inner: None,
             last_node: None,
-            hb: PlRandomState::with_seed(0),
+            hb: PlFixedState::with_seed(0),
         }
     }
 
