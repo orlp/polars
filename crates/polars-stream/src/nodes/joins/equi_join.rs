@@ -186,10 +186,21 @@ impl BuildState {
                     track_unmatchable,
                 );
                 for (p, idxs_in_p) in partitions.iter_mut().zip(&partition_idxs) {
+                    // static AVOID_SHARING_BUILD: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+                    //     std::env::var("POLARS_AVOID_SHARING_BUILD").as_deref() == Ok("1")
+                    // });
+                    static DESHARE_VIEWS: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+                        std::env::var("POLARS_DESHARE_VIEWS").as_deref() == Ok("1")
+                    });
+
+                    let mut payload_for_partition = payload.take_slice_unchecked_impl(idxs_in_p, false);
+                    if *DESHARE_VIEWS {
+                        payload_for_partition._deshare_views_mut();
+                    }
                     p.hash_keys.push(hash_keys.gather(idxs_in_p));
                     p.frames.push((
                         morsel.seq(),
-                        payload.take_slice_unchecked_impl(idxs_in_p, false),
+                        payload_for_partition,
                     ));
                 }
             }
@@ -340,6 +351,10 @@ impl ProbeState {
             key_selectors = &params.left_key_selectors;
         };
 
+        static AVOID_SHARING_PROBE: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+            std::env::var("POLARS_AVOID_SHARING_PROBE").as_deref() == Ok("1")
+        });
+
         while let Ok(morsel) = recv.recv().await {
             // Compute hashed keys and payload.
             let (df, seq, src_token, wait_token) = morsel.into_inner();
@@ -379,9 +394,9 @@ impl ProbeState {
 
                         // Gather output and add to buffer.
                         let mut build_df = if emit_unmatched {
-                            p.df.take_opt_chunked_unchecked(&table_match)
+                            p.df.take_opt_chunked_unchecked(&table_match, *AVOID_SHARING_PROBE)
                         } else {
-                            p.df.take_chunked_unchecked(&table_match, IsSorted::Not)
+                            p.df.take_chunked_unchecked(&table_match, IsSorted::Not, *AVOID_SHARING_PROBE)
                         };
 
                         if !payload_rechunked {
@@ -448,9 +463,9 @@ impl ProbeState {
 
                             // Gather output and send.
                             let mut build_df = if emit_unmatched {
-                                p.df.take_opt_chunked_unchecked(&table_match)
+                                p.df.take_opt_chunked_unchecked(&table_match, *AVOID_SHARING_PROBE)
                             } else {
-                                p.df.take_chunked_unchecked(&table_match, IsSorted::Not)
+                                p.df.take_chunked_unchecked(&table_match, IsSorted::Not, *AVOID_SHARING_PROBE)
                             };
                             if !payload_rechunked {
                                 // TODO: can avoid rechunk? We have to rechunk here or else we do it
@@ -517,7 +532,7 @@ impl ProbeState {
                 p.table.unmarked_keys(&mut unmarked_idxs, 0, IdxSize::MAX);
 
                 // Gather and create full-null counterpart.
-                let mut build_df = p.df.take_chunked_unchecked(&unmarked_idxs, IsSorted::Not);
+                let mut build_df = p.df.take_chunked_unchecked(&unmarked_idxs, IsSorted::Not, true);
                 let len = build_df.height();
                 let mut out_df = if params.left_is_build {
                     let probe_df = DataFrame::full_null(&params.right_payload_schema, len);
@@ -615,7 +630,7 @@ impl EmitUnmatchedState {
 
                 // Gather and create full-null counterpart.
                 let out_df = unsafe {
-                    let mut build_df = p.df.take_chunked_unchecked(&unmarked_idxs, IsSorted::Not);
+                    let mut build_df = p.df.take_chunked_unchecked(&unmarked_idxs, IsSorted::Not, true);
                     let len = build_df.height();
                     if params.left_is_build {
                         let probe_df = DataFrame::full_null(&params.right_payload_schema, len);
