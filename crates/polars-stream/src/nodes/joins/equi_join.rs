@@ -176,7 +176,17 @@ impl BuildState {
             // later chunked gathers.
             let hash_keys = select_keys(morsel.df(), key_selectors, params, state).await?;
             let mut payload = select_payload(morsel.df().clone(), payload_selector);
+
+            static DESHARE_VIEWS_PRE_PARTITION: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+                std::env::var("POLARS_DESHARE_VIEWS_PRE_PARTITION").as_deref() == Ok("1")
+            });
+            static DESHARE_VIEWS_POST_PARTITION: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+                std::env::var("POLARS_DESHARE_VIEWS_POST_PARTITION").as_deref() == Ok("1")
+            });
             payload.rechunk_mut();
+            if *DESHARE_VIEWS_PRE_PARTITION {
+                payload._deshare_views_mut();
+            }
 
             unsafe {
                 hash_keys.gen_partition_idxs(
@@ -189,12 +199,9 @@ impl BuildState {
                     // static AVOID_SHARING_BUILD: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
                     //     std::env::var("POLARS_AVOID_SHARING_BUILD").as_deref() == Ok("1")
                     // });
-                    static DESHARE_VIEWS: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
-                        std::env::var("POLARS_DESHARE_VIEWS").as_deref() == Ok("1")
-                    });
 
                     let mut payload_for_partition = payload.take_slice_unchecked_impl(idxs_in_p, false);
-                    if *DESHARE_VIEWS {
+                    if *DESHARE_VIEWS_POST_PARTITION {
                         payload_for_partition._deshare_views_mut();
                     }
                     p.hash_keys.push(hash_keys.gather(idxs_in_p));
