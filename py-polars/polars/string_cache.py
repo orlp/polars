@@ -3,9 +3,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING
 
-with contextlib.suppress(ImportError):  # Module not available when building docs
-    import polars.polars as plr
-    from polars.polars import PyStringCacheHolder
+from polars._utils.deprecation import deprecated
 
 if TYPE_CHECKING:
     import sys
@@ -16,6 +14,11 @@ if TYPE_CHECKING:
     else:
         from typing_extensions import Self
 
+    if sys.version_info >= (3, 13):
+        from warnings import deprecated
+    else:
+        from typing_extensions import deprecated  # noqa: TC004
+
 
 __all__ = [
     "StringCache",
@@ -25,58 +28,18 @@ __all__ = [
 ]
 
 
+@deprecated("the `StringCache` is deprecated; it is no longer needed")
 class StringCache(contextlib.ContextDecorator):
     """
     Context manager for enabling and disabling the global string cache.
 
-    :class:`Categorical` columns created under the same global string cache have
-    the same underlying physical value when string values are equal. This allows the
-    columns to be concatenated or used in a join operation, for example.
+    This class was historically useful to control when categorical mappings
+    get dropped but no longer does anything.
 
-    Notes
-    -----
-    Enabling the global string cache introduces some overhead.
-    The amount of overhead depends on the number of categories in your data.
-    It is advised to enable the global string cache only when strictly necessary.
-
-    If `StringCache` calls are nested, the global string cache will only be disabled
-    and cleared when the outermost context exits.
-
-    Examples
-    --------
-    Construct two Series using the same global string cache.
-
-    >>> with pl.StringCache():
-    ...     s1 = pl.Series("color", ["red", "green", "red"], dtype=pl.Categorical)
-    ...     s2 = pl.Series("color", ["blue", "red", "green"], dtype=pl.Categorical)
-
-    As both Series are constructed under the same global string cache,
-    they can be concatenated.
-
-    >>> pl.concat([s1, s2])
-    shape: (6,)
-    Series: 'color' [cat]
-    [
-            "red"
-            "green"
-            "red"
-            "blue"
-            "red"
-            "green"
-    ]
-
-    The class can also be used as a function decorator, in which case the string cache
-    is enabled during function execution, and disabled afterwards.
-
-    >>> @pl.StringCache()
-    ... def construct_categoricals() -> pl.Series:
-    ...     s1 = pl.Series("color", ["red", "green", "red"], dtype=pl.Categorical)
-    ...     s2 = pl.Series("color", ["blue", "red", "green"], dtype=pl.Categorical)
-    ...     return pl.concat([s1, s2])
+    .. deprecated:: 1.32.0
     """
 
     def __enter__(self) -> Self:
-        self._string_cache = PyStringCacheHolder()
         return self
 
     def __exit__(
@@ -85,102 +48,41 @@ class StringCache(contextlib.ContextDecorator):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        del self._string_cache
+        pass
 
 
+@deprecated("the `StringCache` is deprecated; it is no longer needed")
 def enable_string_cache() -> None:
     """
     Enable the global string cache.
 
-    :class:`Categorical` columns created under the same global string cache have
-    the same underlying physical value when string values are equal. This allows the
-    columns to be concatenated or used in a join operation, for example.
+    This function was historically useful to control when categorical mappings
+    get dropped but no longer does anything.
 
-    See Also
-    --------
-    StringCache : Context manager for enabling and disabling the string cache.
-    disable_string_cache : Function to disable the string cache.
-
-    Notes
-    -----
-    Enabling the global string cache introduces some overhead.
-    The amount of overhead depends on the number of categories in your data.
-    It is advised to enable the global string cache only when strictly necessary.
-
-    Consider using the :class:`StringCache` context manager for a more reliable way of
-    enabling and disabling the string cache.
-
-    Examples
-    --------
-    Construct two Series using the same global string cache.
-
-    >>> pl.enable_string_cache()
-    >>> s1 = pl.Series("color", ["red", "green", "red"], dtype=pl.Categorical)
-    >>> s2 = pl.Series("color", ["blue", "red", "green"], dtype=pl.Categorical)
-    >>> pl.disable_string_cache()
-
-    As both Series are constructed under the same global string cache,
-    they can be concatenated.
-
-    >>> pl.concat([s1, s2])
-    shape: (6,)
-    Series: 'color' [cat]
-    [
-            "red"
-            "green"
-            "red"
-            "blue"
-            "red"
-            "green"
-    ]
+    .. deprecated:: 1.32.0
     """
-    plr.enable_string_cache()
 
 
+@deprecated("the `StringCache` is deprecated; it is no longer needed")
 def disable_string_cache() -> bool:
     """
     Disable and clear the global string cache.
 
-    See Also
-    --------
-    enable_string_cache : Function to enable the string cache.
-    StringCache : Context manager for enabling and disabling the string cache.
+    This function was historically useful to control when categorical mappings
+    get dropped but no longer does anything.
 
-    Notes
-    -----
-    Consider using the :class:`StringCache` context manager for a more reliable way of
-    enabling and disabling the string cache.
-
-    When used in conjunction with the :class:`StringCache` context manager, the string
-    cache will not be disabled until the context manager exits.
-
-    Examples
-    --------
-    Construct two Series using the same global string cache.
-
-    >>> pl.enable_string_cache()
-    >>> s1 = pl.Series("color", ["red", "green", "red"], dtype=pl.Categorical)
-    >>> s2 = pl.Series("color", ["blue", "red", "green"], dtype=pl.Categorical)
-    >>> pl.disable_string_cache()
-
-    As both Series are constructed under the same global string cache,
-    they can be concatenated.
-
-    >>> pl.concat([s1, s2])
-    shape: (6,)
-    Series: 'color' [cat]
-    [
-            "red"
-            "green"
-            "red"
-            "blue"
-            "red"
-            "green"
-    ]
+    .. deprecated:: 1.32.0
     """
-    return plr.disable_string_cache()
 
 
+@deprecated("the `StringCache` is deprecated; it is no longer needed")
 def using_string_cache() -> bool:
-    """Check whether the global string cache is enabled."""
-    return plr.using_string_cache()
+    """
+    Check whether the global string cache is enabled.
+
+    This function was historically useful to control when categorical mappings
+    get dropped but no longer does anything, simply always returning true.
+
+    .. deprecated:: 1.32.0
+    """
+    return True
