@@ -479,9 +479,9 @@ impl Display for ExprIRDisplay<'_> {
             } => {
                 self.with_root(expr).fmt(f)?;
                 if options.is_strict() {
-                    write!(f, ".strict_cast({dtype:?})")
+                    write!(f, ".strict_cast({dtype})")
                 } else {
-                    write!(f, ".cast({dtype:?})")
+                    write!(f, ".cast({dtype})")
                 }
             },
             Ternary {

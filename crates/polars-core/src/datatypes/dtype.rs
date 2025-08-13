@@ -1091,7 +1091,13 @@ impl Display for DataType {
             #[cfg(feature = "object")]
             DataType::Object(s) => s,
             #[cfg(feature = "dtype-categorical")]
-            DataType::Categorical(_, _) => "cat",
+            DataType::Categorical(cats, _) => {
+                if cats.is_global() {
+                    "cat"
+                } else {
+                    return write!(f, "cat['{}']", cats.name());
+                }
+            },
             #[cfg(feature = "dtype-categorical")]
             DataType::Enum(_, _) => "enum",
             #[cfg(feature = "dtype-struct")]
