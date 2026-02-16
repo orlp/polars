@@ -4,7 +4,6 @@
 //! send `&Any` values and don't have to know the generic type themselves.
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
-use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::sync::{Arc, LazyLock, RwLock};
 
@@ -24,7 +23,7 @@ pub type BuilderConstructor =
 pub type ObjectConverter = Arc<dyn Fn(AnyValue) -> Box<dyn Any> + Send + Sync>;
 pub type PyObjectConverter = Arc<dyn Fn(AnyValue) -> Box<dyn Any> + Send + Sync>;
 pub type ObjectArrayGetter = Arc<dyn Fn(&dyn Array, usize) -> Option<AnyValue<'_>> + Send + Sync>;
-pub type WithGIL = Arc<dyn Fn(&mut (dyn FnMut())) + Send + Sync>;
+pub type WithGIL = Arc<dyn Fn(&mut dyn FnMut()) + Send + Sync>;
 
 pub struct ObjectRegistry {
     /// A function that creates an object builder
@@ -175,11 +174,15 @@ pub fn get_object_array_getter() -> ObjectArrayGetter {
     reg.as_ref().unwrap().array_getter.clone()
 }
 
+/// Run the given function while holding the GIL.
+/// 
+/// This is sometimes used to avoid the overhead of repeatedly
+/// releasing and acquiring the GIL.
 pub fn run_with_gil<R, F: FnOnce() -> R>(f: F) -> R {
     let reg = GLOBAL_OBJECT_REGISTRY.read().unwrap();
     let with_gil = reg.as_ref().unwrap().with_gil.clone();
-    let mut r = &mut None;
-    let mut f = &mut Some(f);
+    let r = &mut None;
+    let f = &mut Some(f);
     (with_gil)(&mut || {
         *r = Some((f.take().unwrap())());
     });
