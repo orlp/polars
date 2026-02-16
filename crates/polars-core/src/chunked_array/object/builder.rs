@@ -247,8 +247,11 @@ impl<T: PolarsObject> ArrayBuilder for ObjectChunkedBuilder<T> {
                 let other: &ObjectArray<T> = other.as_any().downcast_ref().unwrap();
                 self.values
                     .extend_from_slice(&other.values[start..start + length]);
-                self.bitmask_builder
-                    .subslice_extend_from_opt_validity(other.validity(), start, length);
+                self.bitmask_builder.subslice_extend_from_opt_validity(
+                    other.validity(),
+                    start,
+                    length,
+                );
             }
         })
     }

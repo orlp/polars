@@ -138,9 +138,7 @@ where
     }
 
     fn filter(&self, filter: &BooleanChunked) -> PolarsResult<Series> {
-        run_with_gil(|| {
-            ChunkFilter::filter(&self.0, filter).map(|ca| ca.into_series())
-        })
+        run_with_gil(|| ChunkFilter::filter(&self.0, filter).map(|ca| ca.into_series()))
     }
 
     fn take(&self, indices: &IdxCa) -> PolarsResult<Series> {

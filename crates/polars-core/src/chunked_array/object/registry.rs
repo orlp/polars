@@ -175,7 +175,7 @@ pub fn get_object_array_getter() -> ObjectArrayGetter {
 }
 
 /// Run the given function while holding the GIL.
-/// 
+///
 /// This is sometimes used to avoid the overhead of repeatedly
 /// releasing and acquiring the GIL.
 pub fn run_with_gil<R, F: FnOnce() -> R>(f: F) -> R {
