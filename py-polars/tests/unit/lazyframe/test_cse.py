@@ -17,6 +17,8 @@ from polars.testing import assert_frame_equal
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from tests.conftest import PlMonkeyPatch
+
 
 def num_cse_occurrences(explanation: str) -> int:
     """The number of unique CSE columns in an explain string."""
@@ -734,9 +736,9 @@ def test_cse_and_schema_update_projection_pd() -> None:
 @pytest.mark.may_fail_auto_streaming
 @pytest.mark.parametrize("use_custom_io_source", [True, False])
 def test_cse_predicate_self_join(
-    capfd: Any, monkeypatch: Any, use_custom_io_source: bool
+    capfd: Any, plmonkeypatch: PlMonkeyPatch, use_custom_io_source: bool
 ) -> None:
-    monkeypatch.setenv("POLARS_VERBOSE", "1")
+    plmonkeypatch.setenv("POLARS_VERBOSE", "1")
     y = pl.LazyFrame({"a": [1], "b": [2], "y": [3]})
     if use_custom_io_source:
         y = create_dataframe_source(y.collect(), is_pure=True)
@@ -1203,9 +1205,7 @@ def test_cpse_predicates_25030() -> None:
     q4 = q3.group_by("key").len().join(q3, on="key")
 
     got = q4.collect()
-    expected = q4.collect(
-        optimizations=pl.lazyframe.opt_flags.QueryOptFlags(comm_subplan_elim=False)
-    )
+    expected = q4.collect(optimizations=pl.QueryOptFlags(comm_subplan_elim=False))
 
     assert_frame_equal(got, expected)
     assert q4.explain().count("CACHE") == 2
@@ -1221,3 +1221,38 @@ def test_asof_join_25699() -> None:
         df.join_asof(df, on="b").collect(),
         pl.DataFrame({"a": [10], "b": [10], "a_right": [10]}),
     )
+
+
+def test_csee_python_function() -> None:
+    # Make sure to use the same expression
+    # This only works for functions on the same address
+    expr = pl.col("a").map_elements(lambda x: hash(x))
+    q = pl.LazyFrame({"a": [10], "b": [10]}).with_columns(
+        a=expr * 10,
+        b=expr * 100,
+    )
+
+    assert "__POLARS_CSER" in q.explain()
+    assert_frame_equal(
+        q.collect(), q.collect(optimizations=pl.QueryOptFlags(comm_subexpr_elim=False))
+    )
+
+
+def test_csee_streaming() -> None:
+    lf = pl.LazyFrame({"a": [10], "b": [10]})
+
+    # elementwise is allowed
+    expr = pl.col("a") * pl.col("b")
+    q = lf.with_columns(
+        a=expr * 10,
+        b=expr * 100,
+    )
+    assert "__POLARS_CSER" in q.explain(engine="streaming")
+
+    # non-elementwise not
+    expr = pl.col("a").sum()
+    q = lf.with_columns(
+        a=expr * 10,
+        b=expr * 100,
+    )
+    assert "__POLARS_CSER" not in q.explain(engine="streaming")

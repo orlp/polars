@@ -1,5 +1,5 @@
 use polars_core::frame::DataFrame;
-use polars_error::PolarsResult;
+use polars_error::{PolarsResult, polars_bail};
 use polars_io::prelude::CsvSerializer;
 
 use crate::async_executor::{self, TaskPriority};
@@ -40,7 +40,8 @@ impl MorselSerializerPipeline {
                     num_created_serializers += 1;
                     MorselSerializer {
                         csv_serializer: base_csv_serializer.clone(),
-                        serialized_data: Vec::with_capacity(base_allocation_size),
+                        serialized_data: vec![],
+                        allocation_size: base_allocation_size,
                     }
                 } else if let Some(serializer) = reuse_serializer_rx.recv().await {
                     serializer
@@ -69,6 +70,7 @@ impl MorselSerializerPipeline {
 pub struct MorselSerializer {
     pub csv_serializer: CsvSerializer,
     pub serialized_data: Vec<u8>,
+    allocation_size: usize,
 }
 
 impl MorselSerializer {
@@ -76,12 +78,24 @@ impl MorselSerializer {
         let MorselSerializer {
             csv_serializer,
             serialized_data,
+            allocation_size,
         } = &mut self;
+
+        if df.width() == 0 && df.height() > 0 {
+            polars_bail!(
+                InvalidOperation:
+                "cannot sink 0-width DataFrame with non-zero height ({}) to CSV",
+                df.height()
+            )
+        }
 
         rechunk_par(unsafe { df.columns_mut_retain_schema() }).await;
 
         serialized_data.clear();
+        serialized_data.reserve_exact(*allocation_size);
         csv_serializer.serialize_to_csv(&df, serialized_data)?;
+
+        *allocation_size = usize::max(*allocation_size, serialized_data.capacity());
 
         Ok(self)
     }

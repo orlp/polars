@@ -261,7 +261,8 @@ impl<T: NativeType> PrimitiveArray<T> {
             .take()
             .map(|bitmap| bitmap.sliced_unchecked(offset, length))
             .filter(|bitmap| bitmap.unset_bits() > 0);
-        self.values.slice_unchecked(offset, length);
+        self.values
+            .slice_in_place_unchecked(offset..offset + length);
     }
 
     impl_sliced!();
@@ -422,6 +423,13 @@ impl<T: NativeType> PrimitiveArray<T> {
             Vec::<T>::from(slice.as_ref()).into(),
             None,
         )
+    }
+
+    /// Calls f with a [`PrimitiveArray`] backed by this slice.
+    ///
+    /// Aborts if any clones of the [`PrimitiveArray`] still live when `f` returns.
+    pub fn with_slice<R, F: FnOnce(PrimitiveArray<T>) -> R>(slice: &[T], f: F) -> R {
+        Buffer::with_slice(slice, |buf| f(Self::new(T::PRIMITIVE.into(), buf, None)))
     }
 
     /// Creates a (non-null) [`PrimitiveArray`] from a [`TrustedLen`] of values.

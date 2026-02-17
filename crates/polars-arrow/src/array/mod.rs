@@ -9,7 +9,7 @@
 //! * [`Utf8Array`] and [`MutableUtf8Array`], an array of variable length utf8 values
 //! * [`BinaryArray`] and [`MutableBinaryArray`], an array of opaque variable length values
 //! * [`ListArray`] and [`MutableListArray`], an array of arrays (e.g. `[[1, 2], None, [], [None]]`)
-//! * [`StructArray`] and [`MutableStructArray`], an array of arrays identified by a string (e.g. `{"a": [1, 2], "b": [true, false]}`)
+//! * [`StructArray`], an array of arrays identified by a string (e.g. `{"a": [1, 2], "b": [true, false]}`)
 //!
 //! All immutable arrays implement the trait object [`Array`] and that can be downcast
 //! to a concrete struct based on [`PhysicalType`](crate::datatypes::PhysicalType) available from [`Array::dtype`].
@@ -66,8 +66,8 @@ impl<T> Splitable for Buffer<T> {
     }
 
     unsafe fn _split_at_unchecked(&self, offset: usize) -> (Self, Self) {
-        let left = self.clone().sliced_unchecked(0, offset);
-        let right = self.clone().sliced_unchecked(offset, self.len() - offset);
+        let left = self.clone().sliced_unchecked(..offset);
+        let right = self.clone().sliced_unchecked(offset..);
         (left, right)
     }
 }

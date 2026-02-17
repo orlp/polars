@@ -12,6 +12,7 @@ from polars.testing import assert_frame_equal, assert_series_equal
 
 if TYPE_CHECKING:
     from polars._typing import ClosedInterval, PolarsIntegerType
+    from tests.conftest import PlMonkeyPatch
 
 
 def test_rolling() -> None:
@@ -69,8 +70,10 @@ def test_rolling_group_by_overlapping_groups(dtype: PolarsIntegerType) -> None:
 # the thread pool, which implies prior to import. The test is only valid when
 # run in isolation, and invalid otherwise because of xdist import caching.
 # See GH issue #22070
-def test_rolling_group_by_overlapping_groups_21859_a(monkeypatch: Any) -> None:
-    monkeypatch.setenv("POLARS_MAX_THREADS", "1")
+def test_rolling_group_by_overlapping_groups_21859_a(
+    plmonkeypatch: PlMonkeyPatch,
+) -> None:
+    plmonkeypatch.setenv("POLARS_MAX_THREADS", "1")
     # assert pl.thread_pool_size() == 1 # pending resolution, see TODO
     df = pl.select(
         pl.date_range(pl.date(2023, 1, 1), pl.date(2023, 1, 5))
@@ -92,8 +95,10 @@ def test_rolling_group_by_overlapping_groups_21859_a(monkeypatch: Any) -> None:
 # the thread pool, which implies prior to import. The test is only valid when
 # run in isolation, and invalid otherwise because of xdist import caching.
 # See GH issue #22070
-def test_rolling_group_by_overlapping_groups_21859_b(monkeypatch: Any) -> None:
-    monkeypatch.setenv("POLARS_MAX_THREADS", "1")
+def test_rolling_group_by_overlapping_groups_21859_b(
+    plmonkeypatch: PlMonkeyPatch,
+) -> None:
+    plmonkeypatch.setenv("POLARS_MAX_THREADS", "1")
     # assert pl.thread_pool_size() == 1 # pending resolution, see TODO
     df = pl.DataFrame({"a": [20, 30, 40]})
     out = (
@@ -132,11 +137,6 @@ def test_rolling_agg_input_types(input: Any, dtype: PolarsIntegerType) -> None:
     assert_frame_equal(result, expected)
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="Test isolation issue: fails in full test suite but passes individually. "
-    "Known to fail after test_errors.py::test_err_invalid_comparison due to object() type pollution.",
-)
 @pytest.mark.parametrize("input", [str, "b".join])
 def test_rolling_agg_bad_input_types(input: Any) -> None:
     df = pl.LazyFrame({"index_column": [0, 1, 2, 3], "b": [1, 3, 1, 2]}).set_sorted(
@@ -189,7 +189,7 @@ def test_rolling_negative_offset_3914() -> None:
     assert result["matches"].to_list() == expected
 
 
-@pytest.mark.parametrize("time_zone", [None, "US/Central"])
+@pytest.mark.parametrize("time_zone", [None, "America/Chicago"])
 def test_rolling_negative_offset_crossing_dst(time_zone: str | None) -> None:
     df = pl.DataFrame(
         {
@@ -221,7 +221,7 @@ def test_rolling_negative_offset_crossing_dst(time_zone: str | None) -> None:
     assert_frame_equal(result, expected)
 
 
-@pytest.mark.parametrize("time_zone", [None, "US/Central"])
+@pytest.mark.parametrize("time_zone", [None, "America/Chicago"])
 @pytest.mark.parametrize(
     ("offset", "closed", "expected_values"),
     [

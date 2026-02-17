@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use num_traits::AsPrimitive;
 use parking_lot::Mutex;
@@ -36,6 +36,7 @@ use crate::nodes;
 use crate::nodes::io_sources::multi_scan::config::MultiScanConfig;
 use crate::nodes::io_sources::multi_scan::reader_interface::builder::FileReaderBuilder;
 use crate::nodes::io_sources::multi_scan::reader_interface::capabilities::ReaderCapabilities;
+use crate::nodes::joins::merge_join::MergeJoinNode;
 use crate::physical_plan::lower_expr::compute_output_schema;
 use crate::utils::late_materialized_df::LateMaterializedDataFrame;
 
@@ -106,8 +107,18 @@ fn to_graph_rec<'a>(
     use PhysNodeKind::*;
     let node = &ctx.phys_sm[phys_node_key];
     let graph_key = match &node.kind {
-        InMemorySource { df } => ctx.graph.add_node(
-            nodes::in_memory_source::InMemorySourceNode::new(df.clone(), MorselSeq::default()),
+        InMemorySource {
+            df,
+            disable_morsel_split,
+        } => ctx.graph.add_node(
+            if *disable_morsel_split {
+                nodes::in_memory_source::InMemorySourceNode::new_no_morsel_split(
+                    df.clone(),
+                    MorselSeq::default(),
+                )
+            } else {
+                nodes::in_memory_source::InMemorySourceNode::new(df.clone(), MorselSeq::default())
+            },
             [],
         ),
         SinkMultiple { sinks } => {
@@ -254,7 +265,8 @@ fn to_graph_rec<'a>(
             let mut inputs = Vec::with_capacity(reductions.len());
 
             for e in exprs {
-                let (red, input_nodes) = into_reduction(e.node(), ctx.expr_arena, input_schema)?;
+                let (red, input_nodes) =
+                    into_reduction(e.node(), ctx.expr_arena, input_schema, false)?;
                 reductions.push(red);
 
                 let input_phys_exprs = input_nodes
@@ -367,7 +379,6 @@ fn to_graph_rec<'a>(
             let input_key = to_graph_rec(input.node, ctx)?;
 
             let file_schema: SchemaRef;
-            let mut exclude_keys_from_file: Option<ExcludeKeysProjection> = None;
             let mut hstack_keys: Option<HStackColumns> = None;
             let mut include_keys_in_file = false;
 
@@ -403,10 +414,6 @@ fn to_graph_rec<'a>(
                         } else {
                             ExcludeKeysProjection::Indices(exclude_keys_projection)
                         };
-
-                    if !*include_keys {
-                        exclude_keys_from_file = Some(exclude_keys_projection.clone());
-                    }
 
                     let schema_excluding_keys: Schema = exclude_keys_projection
                         .iter_indices()
@@ -448,11 +455,6 @@ fn to_graph_rec<'a>(
                     Partitioner::FileSize
                 },
             };
-
-            if let Some(exclude_keys_from_file) = exclude_keys_from_file.as_ref() {
-                // Should have been checked in IR.
-                assert!(exclude_keys_from_file.len() > 0);
-            }
 
             let mut file_size_limit = RowCountAndSize::MAX;
 
@@ -530,6 +532,7 @@ fn to_graph_rec<'a>(
                     ))
                 })
                 .collect::<PolarsResult<Arc<[_]>>>()?;
+
             ctx.graph.add_node(
                 nodes::sorted_group_by::SortedGroupBy::new(key.clone(), aggs, *slice, input_schema),
                 [(input_key, input.port)],
@@ -674,6 +677,17 @@ fn to_graph_rec<'a>(
             )
         },
 
+        UnorderedUnion { inputs } => {
+            let input_keys = inputs
+                .iter()
+                .map(|i| PolarsResult::Ok((to_graph_rec(i.node, ctx)?, i.port)))
+                .try_collect_vec()?;
+            ctx.graph.add_node(
+                nodes::unordered_union::UnorderedUnionNode::new(node.output_schema.clone()),
+                input_keys,
+            )
+        },
+
         Zip {
             inputs,
             zip_behavior,
@@ -718,6 +732,7 @@ fn to_graph_rec<'a>(
             deletion_files,
             table_statistics,
             file_schema,
+            disable_morsel_split,
         } => {
             let hive_parts = hive_parts.clone();
 
@@ -756,6 +771,7 @@ fn to_graph_rec<'a>(
             let cast_columns_policy = cast_columns_policy.clone();
             let deletion_files = deletion_files.clone();
             let table_statistics = table_statistics.clone();
+            let disable_morsel_split = *disable_morsel_split;
 
             let verbose = config::verbose();
 
@@ -781,6 +797,8 @@ fn to_graph_rec<'a>(
                     num_pipelines: RelaxedCell::new_usize(0),
                     n_readers_pre_init: RelaxedCell::new_usize(0),
                     max_concurrent_scans: RelaxedCell::new_usize(0),
+                    disable_morsel_split,
+                    io_metrics: OnceLock::default(),
                     verbose,
                 })),
                 [],
@@ -825,7 +843,7 @@ fn to_graph_rec<'a>(
                         )
                     );
                     let (reduction, input_nodes) =
-                        into_reduction(agg.node(), ctx.expr_arena, input_schema)?;
+                        into_reduction(agg.node(), ctx.expr_arena, input_schema, true)?;
                     let cols = input_nodes
                         .iter()
                         .map(|node| {
@@ -1085,6 +1103,46 @@ fn to_graph_rec<'a>(
             }
         },
 
+        MergeJoin {
+            input_left,
+            input_right,
+            left_on,
+            right_on,
+            tmp_left_key_col,
+            tmp_right_key_col,
+            descending,
+            nulls_last,
+            keys_row_encoded,
+            args,
+        } => {
+            let args = args.clone();
+            let left_input_key = to_graph_rec(input_left.node, ctx)?;
+            let right_input_key = to_graph_rec(input_right.node, ctx)?;
+            let left_input_schema = ctx.phys_sm[input_left.node].output_schema.clone();
+            let right_input_schema = ctx.phys_sm[input_right.node].output_schema.clone();
+            let output_schema = node.output_schema.clone();
+
+            ctx.graph.add_node(
+                MergeJoinNode::new(
+                    left_input_schema,
+                    right_input_schema,
+                    output_schema,
+                    left_on.clone(),
+                    right_on.clone(),
+                    tmp_left_key_col.clone(),
+                    tmp_right_key_col.clone(),
+                    *descending,
+                    *nulls_last,
+                    *keys_row_encoded,
+                    args,
+                )?,
+                [
+                    (left_input_key, input_left.port),
+                    (right_input_key, input_right.port),
+                ],
+            )
+        },
+
         CrossJoin {
             input_left,
             input_right,
@@ -1107,6 +1165,44 @@ fn to_graph_rec<'a>(
                     (right_input_key, input_right.port),
                 ],
             )
+        },
+
+        AsOfJoin {
+            input_left,
+            input_right,
+            left_on,
+            right_on,
+            tmp_left_key_col,
+            tmp_right_key_col,
+            args,
+        } => {
+            let args = args.clone();
+            let left_input_key = to_graph_rec(input_left.node, ctx)?;
+            let right_input_key = to_graph_rec(input_right.node, ctx)?;
+            let left_input_schema = ctx.phys_sm[input_left.node].output_schema.clone();
+            let right_input_schema = ctx.phys_sm[input_right.node].output_schema.clone();
+            #[cfg(feature = "asof_join")]
+            {
+                ctx.graph.add_node(
+                    nodes::joins::asof_join::AsOfJoinNode::new(
+                        left_input_schema,
+                        right_input_schema,
+                        left_on.clone(),
+                        right_on.clone(),
+                        tmp_left_key_col.clone(),
+                        tmp_right_key_col.clone(),
+                        args,
+                    ),
+                    [
+                        (left_input_key, input_left.port),
+                        (right_input_key, input_right.port),
+                    ],
+                )
+            }
+            #[cfg(not(feature = "asof_join"))]
+            {
+                unreachable!("asof_join feature is disabled")
+            }
         },
 
         #[cfg(feature = "merge_sorted")]
@@ -1310,6 +1406,7 @@ fn to_graph_rec<'a>(
             let cast_columns_policy = CastColumnsPolicy::ERROR_ON_MISMATCH;
             let deletion_files = None;
             let table_statistics = None;
+            let disable_morsel_split = false;
             let verbose = config::verbose();
 
             ctx.graph.add_node(
@@ -1334,6 +1431,8 @@ fn to_graph_rec<'a>(
                     num_pipelines: RelaxedCell::new_usize(0),
                     n_readers_pre_init: RelaxedCell::new_usize(0),
                     max_concurrent_scans: RelaxedCell::new_usize(0),
+                    disable_morsel_split,
+                    io_metrics: OnceLock::default(),
                     verbose,
                 })),
                 [],

@@ -3,6 +3,7 @@ from typing import Any, Literal, TypeAlias, overload
 
 from numpy.typing import NDArray
 
+from polars._typing import ArrowSchemaExportable
 from polars.io.scan_options._options import ScanOptions
 
 # This file mirrors all the definitions made in the polars-python Rust API.
@@ -82,7 +83,6 @@ SetOperation: TypeAlias = Literal[
 ]
 FloatFmt: TypeAlias = Literal["full", "mixed"]
 NDArray1D: TypeAlias = NDArray[Any]
-ParquetFieldOverwrites: TypeAlias = Any
 StatisticsOptions: TypeAlias = Any
 EngineType: TypeAlias = Literal["auto", "in-memory", "streaming", "gpu"]
 PyScanOptions: TypeAlias = Any
@@ -207,7 +207,9 @@ class PySeries:
     def mean(self) -> Any: ...
     def median(self) -> Any: ...
     def product(self) -> Any: ...
-    def quantile(self, quantile: float, interpolation: QuantileMethod) -> Any: ...
+    def quantile(
+        self, quantile: float | Sequence[float], interpolation: QuantileMethod
+    ) -> Any: ...
     def std(self, ddof: int) -> Any: ...
     def var(self, ddof: int) -> Any: ...
     def sum(self) -> Any: ...
@@ -828,8 +830,6 @@ class PyLazyFrame:
         include_file_paths: str | None,
         cloud_options: dict[str, Any] | None,
         credential_provider: Any | None,
-        retries: int,
-        file_cache_ttl: int | None,
     ) -> PyLazyFrame: ...
     @staticmethod
     def new_from_csv(
@@ -863,8 +863,6 @@ class PyLazyFrame:
         schema: Any | None,
         cloud_options: dict[str, Any] | None,
         credential_provider: Any | None,
-        retries: int,
-        file_cache_ttl: int | None,
         include_file_paths: str | None,
     ) -> PyLazyFrame: ...
     @staticmethod
@@ -879,8 +877,8 @@ class PyLazyFrame:
     @staticmethod
     def new_from_ipc(
         sources: Any,
+        record_batch_statistics: bool | None,
         scan_options: ScanOptions,
-        file_cache_ttl: int | None,
     ) -> PyLazyFrame: ...
     @staticmethod
     def new_from_scan_lines(
@@ -888,7 +886,6 @@ class PyLazyFrame:
         *,
         name: str,
         scan_options: ScanOptions,
-        file_cache_ttl: int | None,
     ) -> PyLazyFrame: ...
     @staticmethod
     def new_from_dataset_object(dataset_object: Any) -> PyLazyFrame: ...
@@ -959,7 +956,7 @@ class PyLazyFrame:
         row_group_size: int | None,
         data_page_size: int | None,
         metadata: KeyValueMetadata | None,
-        field_overwrites: Sequence[ParquetFieldOverwrites],
+        arrow_schema: ArrowSchemaExportable | None = None,
     ) -> PyLazyFrame: ...
     def sink_ipc(
         self,
@@ -968,6 +965,7 @@ class PyLazyFrame:
         compression: IpcCompression | None,
         compat_level: CompatLevel,
         record_batch_size: int | None,
+        record_batch_statistics: bool | None,
     ) -> PyLazyFrame: ...
     def sink_csv(
         self,
@@ -991,9 +989,12 @@ class PyLazyFrame:
         null_value: str | None,
         quote_style: QuoteStyle | None,
     ) -> PyLazyFrame: ...
-    def sink_json(
+    def sink_ndjson(
         self,
         target: SinkTarget,
+        compression: Literal["uncompressed", "gzip", "zstd"],
+        compression_level: int | None,
+        check_extension: bool,
         sink_options: Any,
     ) -> PyLazyFrame: ...
     def sink_batches(
@@ -1482,6 +1483,7 @@ class PyExpr:
     def bin_slice(self, offset: PyExpr, length: PyExpr) -> PyExpr: ...
     def bin_head(self, n: PyExpr) -> PyExpr: ...
     def bin_tail(self, n: PyExpr) -> PyExpr: ...
+    def bin_get(self, index: PyExpr, null_on_oob: bool) -> PyExpr: ...
 
     # bitwise
     def bitwise_count_ones(self) -> PyExpr: ...
@@ -1983,7 +1985,9 @@ class PySelector:
     @staticmethod
     def by_dtype(dtypes: Sequence[Any]) -> PySelector: ...
     @staticmethod
-    def by_name(names: Sequence[str], strict: bool) -> PySelector: ...
+    def by_name(
+        names: Sequence[str], strict: bool, expand_patterns: bool
+    ) -> PySelector: ...
     @staticmethod
     def by_index(indices: Sequence[int], strict: bool) -> PySelector: ...
     @staticmethod
@@ -2227,7 +2231,7 @@ def concat_df_horizontal(dfs: Any, strict: bool = False) -> PyDataFrame: ...
 # functions.io
 def read_ipc_schema(py_f: Any) -> dict[str, Any]: ...
 def read_parquet_metadata(
-    py_f: Any, storage_options: Any, credential_provider: Any, retries: int
+    py_f: Any, storage_options: Any, credential_provider: Any
 ) -> dict[str, str]: ...
 def read_clipboard_string() -> str: ...
 def write_clipboard_string(s: str) -> None: ...
@@ -2324,9 +2328,11 @@ def using_string_cache() -> bool: ...
 # functions.strings
 def escape_regex(s: str) -> str: ...
 
-# functions.strings
+# functions: other
 def check_length(check: bool) -> None: ...
 def get_engine_affinity() -> EngineType: ...
+def config_reload_env_vars() -> None: ...
+def config_reload_env_var(var: str) -> None: ...
 
 # functions.when
 class PyWhen:
@@ -2397,7 +2403,6 @@ class PyCatalogClient:
         table_name: str,
         cloud_options: dict[str, str] | None,
         credential_provider: Any | None,
-        retries: int,
     ) -> PyLazyFrame: ...
     def create_catalog(
         self, catalog_name: str, comment: str | None, storage_root: str | None
