@@ -669,7 +669,7 @@ impl Column {
     /// General implementation for aggregation where a non-missing scalar would map to itself.
     #[inline(always)]
     #[cfg(any(feature = "algorithm_group_by", feature = "bitwise"))]
-    fn agg_with_unit_scalar(
+    fn agg_with_scalar_identity(
         &self,
         groups: &GroupsType,
         series_agg: impl Fn(&Series, &GroupsType) -> Series,
@@ -740,7 +740,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_min(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_min(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_min(g) })
     }
 
     /// # Safety
@@ -748,7 +748,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_max(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_max(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_max(g) })
     }
 
     /// # Safety
@@ -756,7 +756,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_mean(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_mean(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_mean(g) })
     }
 
     /// # Safety
@@ -809,7 +809,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_first(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_first(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_first(g) })
     }
 
     /// # Safety
@@ -817,7 +817,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_first_non_null(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_first_non_null(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_first_non_null(g) })
     }
 
     /// # Safety
@@ -825,7 +825,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_last(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_last(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_last(g) })
     }
 
     /// # Safety
@@ -833,7 +833,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_last_non_null(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_last_non_null(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_last_non_null(g) })
     }
 
     /// # Safety
@@ -869,7 +869,7 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_median(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_median(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_median(g) })
     }
 
     /// # Safety
@@ -913,14 +913,14 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "bitwise")]
     pub unsafe fn agg_and(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_and(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_and(g) })
     }
     /// # Safety
     ///
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "bitwise")]
     pub unsafe fn agg_or(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_or(g) })
+        self.agg_with_scalar_identity(groups, |s, g| unsafe { s.agg_or(g) })
     }
     /// # Safety
     ///
