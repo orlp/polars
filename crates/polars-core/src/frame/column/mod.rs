@@ -764,7 +764,17 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_arg_min(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_arg_min(g) })
+        match self {
+            Column::Series(s) => unsafe { Column::from(s.agg_arg_min(groups)) },
+            Column::Scalar(sc) => {
+                let scalar = if sc.is_empty() || sc.has_nulls() {
+                    Scalar::null(IDX_DTYPE)
+                } else {
+                    Scalar::new_idxsize(0)
+                };
+                Column::new_scalar(self.name().clone(), scalar, 1)
+            },
+        }
     }
 
     /// # Safety
@@ -772,7 +782,17 @@ impl Column {
     /// Does no bounds checks, groups must be correct.
     #[cfg(feature = "algorithm_group_by")]
     pub unsafe fn agg_arg_max(&self, groups: &GroupsType) -> Self {
-        self.agg_with_unit_scalar(groups, |s, g| unsafe { s.agg_arg_max(g) })
+        match self {
+            Column::Series(s) => unsafe { Column::from(s.agg_arg_max(groups)) },
+            Column::Scalar(sc) => {
+                let scalar = if sc.is_empty() || sc.has_nulls() {
+                    Scalar::null(IDX_DTYPE)
+                } else {
+                    Scalar::new_idxsize(0)
+                };
+                Column::new_scalar(self.name().clone(), scalar, 1)
+            },
+        }
     }
 
     /// # Safety
