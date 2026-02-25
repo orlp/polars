@@ -155,12 +155,14 @@ pub trait StringMethods: AsString {
             TimeUnit::Microseconds => datetime_to_timestamp_us,
             TimeUnit::Milliseconds => datetime_to_timestamp_ms,
         };
-        
+
         let ca = unary_elementwise(string_ca, |opt_s| {
             let mut s = opt_s?;
             while !s.is_empty() {
                 let timestamp = if tz_aware {
-                    DateTime::parse_and_remainder(s, fmt).ok().map(|(dt, _r)| func(dt.naive_utc()))
+                    DateTime::parse_and_remainder(s, fmt)
+                        .ok()
+                        .map(|(dt, _r)| func(dt.naive_utc()))
                 } else {
                     infer::parse_datetime_and_remainder(s, fmt).map(|(nd, _r)| func(nd))
                 };

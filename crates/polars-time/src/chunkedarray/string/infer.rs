@@ -338,24 +338,24 @@ fn transform_date(val: &str, fmt: &str) -> Option<i32> {
 
 pub(crate) fn parse_datetime(val: &str, fmt: &str) -> Option<NaiveDateTime> {
     NaiveDateTime::parse_from_str(val, fmt)
-        .or_else(|parse_error| {
-            match parse_error.kind() {
-                ParseErrorKind::NotEnough => NaiveDate::parse_from_str(val, fmt)
-                    .map(|nd| nd.and_hms_opt(0, 0, 0).unwrap()),
-                _ => Err(parse_error),
-            }
+        .or_else(|parse_error| match parse_error.kind() {
+            ParseErrorKind::NotEnough => {
+                NaiveDate::parse_from_str(val, fmt).map(|nd| nd.and_hms_opt(0, 0, 0).unwrap())
+            },
+            _ => Err(parse_error),
         })
         .ok()
 }
 
-pub(crate) fn parse_datetime_and_remainder<'a>(val: &'a str, fmt: &str) -> Option<(NaiveDateTime, &'a str)> {
+pub(crate) fn parse_datetime_and_remainder<'a>(
+    val: &'a str,
+    fmt: &str,
+) -> Option<(NaiveDateTime, &'a str)> {
     NaiveDateTime::parse_and_remainder(val, fmt)
-        .or_else(|parse_error| {
-            match parse_error.kind() {
-                ParseErrorKind::NotEnough => NaiveDate::parse_and_remainder(val, fmt)
-                    .map(|(nd, r)| (nd.and_hms_opt(0, 0, 0).unwrap(), r)),
-                _ => Err(parse_error),
-            }
+        .or_else(|parse_error| match parse_error.kind() {
+            ParseErrorKind::NotEnough => NaiveDate::parse_and_remainder(val, fmt)
+                .map(|(nd, r)| (nd.and_hms_opt(0, 0, 0).unwrap(), r)),
+            _ => Err(parse_error),
         })
         .ok()
 }
@@ -379,7 +379,6 @@ fn transform_tzaware_datetime_ns(val: &str, fmt: &str) -> Option<i64> {
     let dt = DateTime::parse_from_str(val, fmt);
     dt.ok().map(|dt| datetime_to_timestamp_ns(dt.naive_utc()))
 }
-
 
 fn transform_tzaware_datetime_us(val: &str, fmt: &str) -> Option<i64> {
     let dt = DateTime::parse_from_str(val, fmt);
