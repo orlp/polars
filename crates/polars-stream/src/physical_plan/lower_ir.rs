@@ -190,7 +190,10 @@ pub fn lower_ir(
     let node_kind = match ir_node {
         IR::SimpleProjection { input, columns } => {
             disable_morsel_split.get_or_insert(true);
-            let columns = columns.iter_names_cloned().collect::<Vec<_>>();
+            let columns = columns
+                .iter_names_cloned()
+                .map(|c| (c.clone(), c))
+                .collect();
             let phys_input = lower_ir!(*input)?;
             PhysNodeKind::SimpleProjection {
                 input: phys_input,
@@ -256,9 +259,13 @@ pub fn lower_ir(
                         .any(|(l, r)| l != r)
                 {
                     let phys_input = phys_sm.insert(PhysNode::new(schema, node_kind));
+                    let columns = projection_schema
+                        .iter_names_cloned()
+                        .map(|c| (c.clone(), c))
+                        .collect();
                     node_kind = PhysNodeKind::SimpleProjection {
                         input: PhysStream::first(phys_input),
-                        columns: projection_schema.iter_names_cloned().collect::<Vec<_>>(),
+                        columns,
                     };
                 }
             }
@@ -881,9 +888,13 @@ pub fn lower_ir(
                         stream = PhysStream::first(node_key);
 
                         if reorder_after_row_index_post {
+                            let columns = output_schema
+                                .iter_names_cloned()
+                                .map(|c| (c.clone(), c))
+                                .collect();
                             let node = PhysNodeKind::SimpleProjection {
                                 input: stream,
-                                columns: output_schema.iter_names_cloned().collect(),
+                                columns,
                             };
 
                             let node_key = phys_sm.insert(PhysNode {
@@ -910,9 +921,13 @@ pub fn lower_ir(
                         stream = PhysStream::first(node_key);
 
                         if reorder_after_row_index_post {
+                            let columns = output_schema
+                                .iter_names_cloned()
+                                .map(|c| (c.clone(), c))
+                                .collect();
                             let node = PhysNodeKind::SimpleProjection {
                                 input: stream,
-                                columns: output_schema.iter_names_cloned().collect(),
+                                columns,
                             };
 
                             let node_key = phys_sm.insert(PhysNode {
