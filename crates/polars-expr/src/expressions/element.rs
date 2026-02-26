@@ -26,7 +26,7 @@ impl PhysicalExpr for ElementExpr {
         Ok(flattened)
     }
 
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         df: &DataFrame,
         groups: &'a GroupPositions,

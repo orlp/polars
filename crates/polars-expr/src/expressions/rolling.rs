@@ -74,7 +74,7 @@ impl PhysicalExpr for RollingExpr {
         Ok(out.into_column())
     }
 
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         df: &DataFrame,
         groups: &'a GroupPositions,

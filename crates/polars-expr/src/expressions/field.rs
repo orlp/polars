@@ -40,7 +40,7 @@ impl PhysicalExpr for FieldExpr {
     }
 
     // In-memory engine only.
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         _df: &DataFrame,
         _groups: &'a GroupPositions,

@@ -98,7 +98,7 @@ impl PhysicalExpr for SliceExpr {
         Ok(series.slice(offset, length))
     }
 
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         df: &DataFrame,
         groups: &'a GroupPositions,

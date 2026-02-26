@@ -81,7 +81,7 @@ impl PhysicalExpr for PhysicalExprWithConstCols {
         self.child.evaluate(&df, state)
     }
 
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         df: &DataFrame,
         groups: &'a GroupPositions,

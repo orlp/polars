@@ -29,7 +29,7 @@ impl PhysicalExpr for CountExpr {
         ))
     }
 
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         _df: &DataFrame,
         groups: &'a GroupPositions,

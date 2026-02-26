@@ -448,7 +448,7 @@ impl PhysicalExpr for EvalExpr {
         Ok(out.with_name(self.output_field.name().clone()))
     }
 
-    fn evaluate_on_groups<'a>(
+    fn evaluate_on_groups_impl<'a>(
         &self,
         df: &DataFrame,
         groups: &'a GroupPositions,
@@ -499,7 +499,7 @@ impl PhysicalExpr for EvalExpr {
                 input.with_values(builder.finish().into_column(), true, Some(&self.expr))?;
             },
         }
-        
+
         input.rename(self.output_field.name().clone());
         Ok(input)
     }
