@@ -1105,7 +1105,8 @@ impl IRFunctionExpr {
             F::ArgMin | F::ArgMax => FunctionOptions::aggregation(),
             F::ArgSort { .. } => FunctionOptions::length_preserving(),
             F::MinBy | F::MaxBy => FunctionOptions::aggregation(),
-            F::Product => FunctionOptions::aggregation().flag(FunctionFlags::NON_ORDER_OBSERVING),
+            // TODO: decimal product is order-observing, we should get schema here to determine.
+            F::Product => FunctionOptions::aggregation(),
             #[cfg(feature = "rank")]
             F::Rank { .. } => FunctionOptions::length_preserving(),
             F::Repeat => {
