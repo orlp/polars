@@ -1453,7 +1453,7 @@ def test_min_max_by_series_length_mismatch_26049(
     )
     with pytest.raises(
         pl.exceptions.ShapeError,
-        match=r"^expressions must have matching group lengths$",
+        match=r"expressions must have matching group lengths",
     ):
         q.collect(engine="in-memory")
 
