@@ -1570,7 +1570,7 @@ def test_csv_categorical_categorical_merge(chunk_override: None) -> None:
     pl.DataFrame({"x": ["A"] * N + ["B"] * N}).write_csv(f)
     f.seek(0)
     assert pl.read_csv(
-        f, schema_overrides={"x": pl.Categorical}, sample_size=10
+        f, schema_overrides={"x": pl.Categorical}
     ).unique(maintain_order=True)["x"].to_list() == ["A", "B"]
 
 
