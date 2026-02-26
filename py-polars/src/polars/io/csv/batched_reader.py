@@ -66,6 +66,7 @@ class BatchedCsvReader:
             null_values=null_values,
             missing_utf8_is_empty_string=missing_utf8_is_empty_string,
             try_parse_dates=try_parse_dates,
+            n_threads=n_threads,
             skip_rows_after_header=skip_rows_after_header,
             row_index_name=row_index_name,
             row_index_offset=row_index_offset,
