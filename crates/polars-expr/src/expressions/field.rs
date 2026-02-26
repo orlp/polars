@@ -30,7 +30,7 @@ impl PhysicalExpr for FieldExpr {
     }
 
     // In-memory engine only.
-    fn evaluate(&self, _df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, _df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let ca = state
             .with_fields
             .as_ref()

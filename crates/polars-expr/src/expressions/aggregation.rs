@@ -48,7 +48,7 @@ impl PhysicalExpr for AggregationExpr {
         None
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let s = self.input.evaluate(df, state)?;
 
         let AggregationType {
@@ -521,7 +521,7 @@ impl PhysicalExpr for AggQuantileExpr {
         None
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let input = self.input.evaluate(df, state)?;
 
         let quantile = self.quantile.evaluate(df, state)?;
@@ -661,7 +661,7 @@ impl PhysicalExpr for AggMinMaxByExpr {
         None
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let input = self.input.evaluate(df, state)?;
         let by = self.by.evaluate(df, state)?;
         let name = if self.is_max_by { "max_by" } else { "min_by" };
@@ -766,7 +766,7 @@ impl PhysicalExpr for AnonymousAggregationExpr {
         None
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         polars_ensure!(
             self.inputs.len() == 1,
             ComputeError: "AnonymousAggregationExpr with more than one input is not supported"

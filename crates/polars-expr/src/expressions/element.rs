@@ -19,7 +19,7 @@ impl PhysicalExpr for ElementExpr {
         Some(&Expr::Element)
     }
 
-    fn evaluate(&self, _df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, _df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let (flattened, _validity) = state.element.as_ref().clone().ok_or_else(
             || polars_err!(InvalidOperation: "`element` is not allowed in this context"),
         )?;

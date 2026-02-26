@@ -21,7 +21,7 @@ impl PhysicalExpr for CountExpr {
         Some(&self.expr)
     }
 
-    fn evaluate(&self, df: &DataFrame, _state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, _state: &ExecutionState) -> PolarsResult<Column> {
         Ok(Column::new_scalar(
             PlSmallStr::from_static(LEN),
             Scalar::from(df.height() as IdxSize),

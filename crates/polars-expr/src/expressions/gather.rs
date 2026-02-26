@@ -21,7 +21,7 @@ impl PhysicalExpr for GatherExpr {
         Some(&self.expr)
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let series = self.phys_expr.evaluate(df, state)?;
         let idx = self.idx.evaluate(df, state)?;
         let idx =

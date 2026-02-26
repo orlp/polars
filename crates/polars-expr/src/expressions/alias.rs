@@ -28,7 +28,7 @@ impl PhysicalExpr for AliasExpr {
         Some(&self.expr)
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let series = self.physical_expr.evaluate(df, state)?;
         Ok(self.finish(series))
     }

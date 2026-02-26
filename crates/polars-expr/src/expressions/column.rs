@@ -105,7 +105,7 @@ impl PhysicalExpr for ColumnExpr {
         Some(&self.expr)
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let out = match self.schema.get_full(&self.name) {
             Some((idx, _, _)) => {
                 // check if the schema was correct

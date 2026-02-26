@@ -84,7 +84,7 @@ impl PhysicalExpr for TernaryExpr {
         Some(&self.expr)
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let mut state = state.split();
         // Don't cache window functions as they run in parallel.
         state.remove_cache_window_flag();

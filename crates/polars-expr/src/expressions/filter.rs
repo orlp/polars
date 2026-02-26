@@ -22,7 +22,7 @@ impl PhysicalExpr for FilterExpr {
         Some(&self.expr)
     }
 
-    fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
+    fn evaluate_impl(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         let s_f = || self.input.evaluate(df, state);
         let predicate_f = || self.by.evaluate(df, state);
 
