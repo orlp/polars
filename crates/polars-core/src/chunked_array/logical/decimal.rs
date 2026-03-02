@@ -198,8 +198,8 @@ impl DecimalChunked {
 
         let mut prod = i128_to_dec128(1, prec, scale).unwrap();
         for arr in self.phys.downcast_iter() {
-            for v in arr.into_iter().flatten() {
-                if let Some(p) = dec128_mul(prod, *v, prec, scale) {
+            for v in arr.non_null_values_iter() {
+                if let Some(p) = dec128_mul(prod, v, prec, scale) {
                     prod = p;
                 } else {
                     return Scalar::null(DataType::Decimal(prec, scale));
