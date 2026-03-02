@@ -794,7 +794,7 @@ def concat_str(
     return wrap_expr(plr.concat_str(exprs, separator, ignore_nulls))
 
 
-def format(f_string: str, *args: Expr | str) -> Expr:
+def format(f_string: str, *args: IntoExpr) -> Expr:
     """
     Format expressions as a string.
 
