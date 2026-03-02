@@ -696,6 +696,9 @@ pub trait PhysicalExpr: Send + Sync {
     }
 
     /// Take a DataFrame and evaluate the expression.
+    /// 
+    /// Note: implementers should implement evaluate_impl instead, as this wraps
+    /// that call with an error context.
     fn evaluate(&self, df: &DataFrame, state: &ExecutionState) -> PolarsResult<Column> {
         self.evaluate_impl(df, state).map_err(|e| {
             if let Some(expr) = self.as_expression() {
