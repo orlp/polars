@@ -48,18 +48,17 @@
 
 ## Polars: Extremely fast Query Engine for DataFrames, written in Rust
 
-Polars is an analytical query engine written for DataFrames. It is designed to be fast, easy to use
+Polars is an analytical query engine for DataFrames. It is designed to be fast, easy to use
 and expressive. Key features are:
 
-- Lazy | Eager execution
-- Streaming (larger-than-RAM datasets)
-- Query optimization
-- Multi-threaded
-- Written in Rust
-- SIMD
-- Powerful expression API
-- Front end in Python | Rust | NodeJS | R | SQL
-- [Apache Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html)
+- **Lazy and eager execution** — run queries immediately or defer and optimize them
+- **Streaming** — process datasets larger than available RAM
+- **Query optimization** — automatic rewriting of queries to reduce work and memory use
+- **Multi-threaded** — parallelizes work across all available CPU cores
+- **SIMD vectorization** — exploits wide CPU instructions for faster data processing
+- **Powerful expression API** — composable, readable expressions for complex transformations
+- **Multiple front ends** — Python, Rust, Node.js, R, and SQL
+- **[Apache Arrow Columnar Format](https://arrow.apache.org/docs/format/Columnar.html)** — efficient in-memory representation and interoperability
 
 To learn more, read the [user guide](https://docs.pola.rs/).
 
@@ -97,11 +96,13 @@ pip install polars
 ```
 
 See the [User Guide](https://docs.pola.rs/user-guide/installation/#feature-flags) for more details
-on optional dependencies
+on optional dependencies.
 
 To see the current Polars version and a full list of its optional dependencies, run:
 
 ```python
+import polars as pl
+
 pl.show_versions()
 ```
 
@@ -114,9 +115,9 @@ Want to contribute? Read our [contributing guide](https://docs.pola.rs/developme
 Do you want a managed solution or scale out to distributed clusters? Consider our
 [offering](https://cloud.pola.rs/) and help the project!
 
-## Python: compile Polars from source
+## Building from source (Python)
 
-If you want a bleeding edge release or maximal performance you should compile Polars from source.
+If you want a bleeding-edge release or maximum performance, you can compile Polars from source.
 
 This can be done by going through the following steps in sequence:
 
@@ -144,13 +145,12 @@ named `polars`, so you can `pip install polars` and `import polars`.
 Extending Polars with UDFs compiled in Rust is easy. We expose PyO3 extensions for `DataFrame` and
 `Series` data structures. See more in https://github.com/pola-rs/polars/tree/main/pyo3-polars.
 
-## Going big...
+## Large row counts (Big Index)
 
 Do you expect more than 2^32 (~4.2 billion) rows? Compile Polars with the `bigidx` feature flag or,
 for Python users, install `pip install polars[rt64]`.
 
-Don't use this unless you hit the row boundary as the default build of Polars is faster and consumes
-less memory.
+Only enable this if you need it, as the default build is faster and uses less memory.
 
 ## Legacy
 

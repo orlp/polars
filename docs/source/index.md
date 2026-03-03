@@ -30,7 +30,7 @@ in Rust, and available for Python, R and NodeJS.
   data to be in memory at the same time.
 - **Parallel**: Utilises the power of your machine by dividing the workload among the available CPU
   cores without any additional configuration.
-- **Vectorized Query Engine**
+- **Vectorized query engine**: Processes data in columnar batches using SIMD for maximum throughput.
 - **GPU Support**: Optionally run queries on NVIDIA GPUs for maximum performance for in-memory
   workloads.
 - **[Apache Arrow support](https://arrow.apache.org/)**: Polars can consume and produce Arrow data
@@ -46,13 +46,13 @@ in Rust, and available for Python, R and NodeJS.
 
 ## Philosophy
 
-The goal of Polars is to provide a lightning fast DataFrame library that:
+The goal of Polars is to provide a lightning-fast DataFrame library that:
 
 - Utilizes all available cores on your machine.
 - Optimizes queries to reduce unneeded work/memory allocations.
 - Handles datasets much larger than your available RAM.
-- A consistent and predictable API.
-- Adheres to a strict schema (data-types should be known before running the query).
+- Provides a consistent and predictable API.
+- Adheres to a strict schema (data types should be known before running the query).
 
 Polars is written in Rust which gives it C/C++ performance and allows it to fully control
 performance-critical parts in a query engine.
