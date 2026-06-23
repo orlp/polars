@@ -141,3 +141,9 @@ def test_qcut_over() -> None:
         dtype=pl.Categorical,
     )
     assert_series_equal(out, expected, categorical_as_str=True)
+
+
+def test_qcut_nan_breakpoint() -> None:
+    with pytest.raises(pl.ComputeError):
+        (pl.Series([1.0, float('nan'), float('nan'), float('nan')])
+            .qcut([0.5]))

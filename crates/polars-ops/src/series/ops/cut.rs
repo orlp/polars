@@ -203,6 +203,7 @@ pub fn qcut(
         .map(|opt| opt.unwrap())
         .collect();
 
+    polars_ensure!(!qbreaks.iter().any(|x| x.is_nan()), ComputeError: "qcut breakpoints cannot be NaN");
     qbreaks.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
 
     if !allow_duplicates {
