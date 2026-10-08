@@ -11,6 +11,7 @@ mod tests;
 
 pub(crate) use hot::{HotKeyRows, KeyRowCollector};
 pub use keys::KeyRowKeys;
+pub(crate) use keys::KeyRowKeysBuilder;
 pub(crate) use layout::KeyRowLayout;
 pub(crate) use map::KeyRowIndexMap;
 

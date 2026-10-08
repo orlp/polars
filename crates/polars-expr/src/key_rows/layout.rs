@@ -24,8 +24,25 @@ enum ColKind {
 pub(super) struct ColLayout {
     kind: ColKind,
     pub(super) physical: DataType,
+    /// Byte width within the row.
+    width: usize,
     /// Byte offset within the row.
     pub(super) offset: usize,
+}
+
+impl ColLayout {
+    /// The dtype of the values of this column in the columns form.
+    pub(super) fn values_dtype(&self) -> ArrowDataType {
+        match (self.kind, self.width) {
+            (ColKind::Bool, _) => ArrowDataType::Boolean,
+            (ColKind::View, _) => ArrowDataType::BinaryView,
+            (ColKind::Fixed, 1) => ArrowDataType::UInt8,
+            (ColKind::Fixed, 2) => ArrowDataType::UInt16,
+            (ColKind::Fixed, 4) => ArrowDataType::UInt32,
+            (ColKind::Fixed, 8) => ArrowDataType::UInt64,
+            (ColKind::Fixed, _) => ArrowDataType::UInt128,
+        }
+    }
 }
 
 /// The layout of a key column of this dtype, with its width in the row.
@@ -45,6 +62,7 @@ fn key_col(dtype: &DataType) -> Option<(ColLayout, usize)> {
         ColLayout {
             kind,
             physical,
+            width,
             offset: 0,
         },
         width,

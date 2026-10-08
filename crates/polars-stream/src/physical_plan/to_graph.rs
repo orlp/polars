@@ -1305,25 +1305,47 @@ fn to_graph_rec<'a>(
             let grouper = new_hash_grouper(key_schema.clone());
             let output_schema = node.output_schema(0).clone();
             let num_pipelines = ctx.num_pipelines;
-            ctx.add_node_with_metrics(
-                |registry| {
-                    nodes::group_by::GroupByNode::new(
-                        key_schema,
-                        key_selectors_per_input,
-                        reductions_per_input,
-                        grouper,
-                        grouped_reduction_cols,
-                        payload_per_input,
-                        grouped_reductions,
-                        output_schema,
-                        PlRandomState::default(),
-                        num_pipelines,
-                        has_order_sensitive_agg,
-                        registry,
-                    )
-                },
-                key_ports,
-            )
+            if std::env::var("POLARS_NEW_GROUPBY").is_ok_and(|v| v == "1") {
+                ctx.add_node_with_metrics(
+                    |registry| {
+                        nodes::new_group_by::GroupByNode::new(
+                            key_schema,
+                            key_selectors_per_input,
+                            reductions_per_input,
+                            grouper,
+                            grouped_reduction_cols,
+                            payload_per_input,
+                            grouped_reductions,
+                            output_schema,
+                            PlRandomState::default(),
+                            num_pipelines,
+                            has_order_sensitive_agg,
+                            registry,
+                        )
+                    },
+                    key_ports,
+                )
+            } else {
+                ctx.add_node_with_metrics(
+                    |registry| {
+                        nodes::group_by::GroupByNode::new(
+                            key_schema,
+                            key_selectors_per_input,
+                            reductions_per_input,
+                            grouper,
+                            grouped_reduction_cols,
+                            payload_per_input,
+                            grouped_reductions,
+                            output_schema,
+                            PlRandomState::default(),
+                            num_pipelines,
+                            has_order_sensitive_agg,
+                            registry,
+                        )
+                    },
+                    key_ports,
+                )
+            }
         },
 
         #[cfg(feature = "dynamic_group_by")]

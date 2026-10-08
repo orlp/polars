@@ -7,6 +7,7 @@ import pytest
 
 import polars as pl
 from polars.testing import assert_frame_equal
+from tests.unit.streaming.conftest import assert_engines_equal
 
 if TYPE_CHECKING:
     from polars._typing import JoinBuildSide, JoinStrategy
@@ -70,14 +71,6 @@ def hot_table_size(
 ) -> None:
     plmonkeypatch.setenv("POLARS_HOT_TABLE_SIZE", str(request.param))
     plmonkeypatch.setenv("POLARS_MAX_HOT_TABLE_SIZE", str(request.param))
-
-
-def assert_engines_equal(lf: pl.LazyFrame, *, check_row_order: bool = False) -> None:
-    assert_frame_equal(
-        lf.collect(engine="streaming"),
-        lf.collect(engine="in-memory"),
-        check_row_order=check_row_order,
-    )
 
 
 @pytest.mark.usefixtures("hot_table_size")

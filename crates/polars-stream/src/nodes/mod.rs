@@ -30,6 +30,7 @@ pub mod map;
 pub mod merge_sorted;
 pub mod multiplexer;
 pub mod negative_slice;
+pub mod new_group_by;
 pub mod ordered_union;
 pub mod peak_minmax;
 pub mod reduce;

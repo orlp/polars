@@ -124,6 +124,18 @@ def test_streaming_cross_join_empty() -> None:
     assert out.columns == ["col1", "col1_right"]
 
 
+def test_streaming_cross_join_nullable_struct_probe() -> None:
+    # Each probe row is repeated once per build row, its validity included.
+    build = pl.LazyFrame({"a": [1, 2, 3]})
+    probe = pl.LazyFrame({"s": [{"x": 1}, None, {"x": 3}, None]})
+    q = build.join(probe, how="cross")
+    assert_frame_equal(
+        q.collect(engine="streaming"),
+        q.collect(engine="in-memory"),
+        check_row_order=False,
+    )
+
+
 def test_streaming_join_rechunk_12498() -> None:
     rows = pl.int_range(0, 2)
 

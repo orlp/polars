@@ -1,8 +1,10 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 use std::hash::BuildHasher;
 
+use polars_arrow::array::builder::{ShareStrategy, StaticArrayBuilder};
 use polars_arrow::array::{
-    Array, BinaryArray, BinaryViewArray, PrimitiveArray, StaticArray, UInt64Array,
+    Array, BinaryArray, BinaryArrayBuilder, BinaryViewArray, BinaryViewArrayBuilder,
+    PrimitiveArray, PrimitiveArrayBuilder, StaticArray, UInt64Array,
 };
 use polars_arrow::bitmap::Bitmap;
 use polars_arrow::compute::utils::combine_validities_and_many;
@@ -10,6 +12,8 @@ use polars_core::frame::DataFrame;
 use polars_core::prelude::row_encode::_get_rows_encoded_unordered;
 use polars_core::prelude::{ChunkedArray, DataType, PlRandomState, PolarsDataType, *};
 use polars_core::series::Series;
+use polars_core::series::builder::SeriesBuilder;
+use polars_ooc::Spillable;
 use polars_utils::IdxSize;
 use polars_utils::cardinality_sketch::CardinalitySketch;
 use polars_utils::f2_sketch::F2Sketch;
@@ -19,7 +23,7 @@ use polars_utils::total_ord::{BuildHasherTotalExt, TotalHash};
 use polars_utils::vec::PushUnchecked;
 
 pub use crate::key_rows::KeyRowKeys;
-use crate::key_rows::KeyRowLayout;
+use crate::key_rows::{KeyRowKeysBuilder, KeyRowLayout};
 
 /// Keys are hashed and prefetched in blocks of this many.
 pub(crate) const BLOCK_SIZE: usize = 256;
@@ -205,6 +209,25 @@ impl HashKeys {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Estimated memory of the keys and stored hashes, in bytes.
+    pub fn estimated_size(&self) -> usize {
+        match self {
+            HashKeys::RowEncoded(s) => {
+                let offsets = s.keys.offsets();
+                size_of_val(s.hashes.values().as_slice())
+                    + size_of_val(offsets.as_slice())
+                    + offsets.range() as usize
+            },
+            HashKeys::KeyRows(s) => s.estimated_size(),
+            HashKeys::Single(s) => s.keys.estimated_size(),
+            HashKeys::Binview(s) => {
+                size_of_val(s.hashes.values().as_slice())
+                    + size_of_val(s.keys.views().as_slice())
+                    + s.keys.total_bytes_len()
+            },
+        }
     }
 
     pub fn validity(&self) -> Option<&Bitmap> {
@@ -456,6 +479,263 @@ impl HashKeys {
             HashKeys::KeyRows(s) => Self::KeyRows(s.gather_unchecked(idxs)),
             HashKeys::Single(s) => Self::Single(s.gather_unchecked(idxs)),
             HashKeys::Binview(s) => Self::Binview(s.gather_unchecked(idxs)),
+        }
+    }
+
+    /// The key data and stored hashes as a frame, with what is needed besides the frame to
+    /// rebuild these keys.
+    fn to_spill_frame(&self) -> (DataFrame, SpilledKind) {
+        match self {
+            HashKeys::RowEncoded(s) => {
+                let keys = BinaryOffsetChunked::with_chunk(
+                    PlSmallStr::from_static("keys"),
+                    s.keys.clone(),
+                );
+                let columns = vec![
+                    spill_column("hashes", s.hashes.clone().boxed()),
+                    keys.into_column(),
+                ];
+                let df = DataFrame::new(s.keys.len(), columns).unwrap();
+                (df, SpilledKind::RowEncoded)
+            },
+            HashKeys::KeyRows(s) => (s.to_spill_frame(), SpilledKind::KeyRows(s.layout.clone())),
+            HashKeys::Single(s) => {
+                let df = s.keys.to_physical_repr().into_owned().into_frame();
+                let kind = SpilledKind::Single {
+                    random_state: s.random_state.clone(),
+                    dtype: s.keys.dtype().clone(),
+                    null_is_valid: s.null_is_valid,
+                };
+                (df, kind)
+            },
+            HashKeys::Binview(s) => {
+                let columns = vec![
+                    spill_column("hashes", s.hashes.clone().boxed()),
+                    spill_column("keys", s.keys.clone().boxed()),
+                ];
+                let df = DataFrame::new(s.keys.len(), columns).unwrap();
+                let kind = SpilledKind::Binview {
+                    null_is_valid: s.null_is_valid,
+                };
+                (df, kind)
+            },
+        }
+    }
+
+    fn from_spill_frame(df: &DataFrame, kind: &SpilledKind) -> Self {
+        match kind {
+            SpilledKind::RowEncoded => Self::RowEncoded(RowEncodedKeys {
+                hashes: spilled_array(df, "hashes"),
+                keys: spilled_array(df, "keys"),
+            }),
+            SpilledKind::KeyRows(layout) => {
+                Self::KeyRows(KeyRowKeys::from_spill_frame(layout.clone(), df))
+            },
+            SpilledKind::Single {
+                random_state,
+                dtype,
+                null_is_valid,
+            } => {
+                let keys = df.columns()[0].as_materialized_series().rechunk();
+                Self::Single(SingleKeys {
+                    random_state: random_state.clone(),
+                    // SAFETY: these are the physical values of keys of this dtype.
+                    keys: unsafe { keys.from_physical_unchecked(dtype) }.unwrap(),
+                    null_is_valid: *null_is_valid,
+                })
+            },
+            SpilledKind::Binview { null_is_valid } => Self::Binview(BinviewKeys {
+                hashes: spilled_array(df, "hashes"),
+                keys: spilled_array(df, "keys"),
+                null_is_valid: *null_is_valid,
+            }),
+        }
+    }
+}
+
+/// What is needed besides the spilled frame to rebuild `HashKeys` of the same kind without
+/// hashing again.
+enum SpilledKind {
+    RowEncoded,
+    KeyRows(Arc<KeyRowLayout>),
+    Single {
+        random_state: PlRandomState,
+        dtype: DataType,
+        null_is_valid: bool,
+    },
+    Binview {
+        null_is_valid: bool,
+    },
+}
+
+/// Spilled `HashKeys`: the key data and stored hashes as one spilled frame, plus what is needed
+/// to rebuild the same kind without hashing again.
+pub struct SpilledHashKeys {
+    frame: <DataFrame as Spillable>::Spilled,
+    kind: SpilledKind,
+}
+
+impl Spillable for HashKeys {
+    type Spilled = SpilledHashKeys;
+
+    fn estimate_byte_size(&self) -> usize {
+        self.estimated_size()
+    }
+
+    async fn spill(&self, context_id: &str) -> SpilledHashKeys {
+        let (frame, kind) = self.to_spill_frame();
+        SpilledHashKeys {
+            frame: frame.spill(context_id).await,
+            kind,
+        }
+    }
+
+    async fn unspill(spilled: &SpilledHashKeys) -> Self {
+        let frame = DataFrame::unspill(&spilled.frame).await;
+        Self::from_spill_frame(&frame, &spilled.kind)
+    }
+}
+
+/// A column of a frame to spill, holding one array.
+pub(crate) fn spill_column(name: &str, array: Box<dyn Array>) -> Column {
+    Series::from_arrow(PlSmallStr::from_str(name), array)
+        .unwrap()
+        .into_column()
+}
+
+/// The column `name` of a frame read back from a spill, as one array.
+pub(crate) fn spilled_array<A: Array + Clone>(df: &DataFrame, name: &str) -> A {
+    let s = df.column(name).unwrap().as_materialized_series().rechunk();
+    s.chunks()[0].as_any().downcast_ref::<A>().unwrap().clone()
+}
+
+/// Builds one `HashKeys` from rows of others of the same kind and key schema, keeping their
+/// hashes.
+pub struct HashKeysBuilder(KindBuilder);
+
+enum KindBuilder {
+    RowEncoded {
+        hashes: PrimitiveArrayBuilder<u64>,
+        keys: BinaryArrayBuilder<i64>,
+    },
+    KeyRows(KeyRowKeysBuilder),
+    Single {
+        random_state: PlRandomState,
+        name: PlSmallStr,
+        keys: SeriesBuilder,
+        null_is_valid: bool,
+    },
+    Binview {
+        hashes: PrimitiveArrayBuilder<u64>,
+        keys: BinaryViewArrayBuilder,
+        null_is_valid: bool,
+    },
+}
+
+impl HashKeysBuilder {
+    /// A builder for keys of the same kind and key schema as `like`.
+    pub fn new(like: &HashKeys) -> Self {
+        Self(match like {
+            HashKeys::RowEncoded(s) => KindBuilder::RowEncoded {
+                hashes: PrimitiveArrayBuilder::new(s.hashes.dtype().clone()),
+                keys: BinaryArrayBuilder::new(s.keys.dtype().clone()),
+            },
+            HashKeys::KeyRows(s) => KindBuilder::KeyRows(KeyRowKeysBuilder::new(s.layout.clone())),
+            HashKeys::Single(s) => KindBuilder::Single {
+                random_state: s.random_state.clone(),
+                name: s.keys.name().clone(),
+                keys: SeriesBuilder::new(s.keys.dtype().clone()),
+                null_is_valid: s.null_is_valid,
+            },
+            HashKeys::Binview(s) => KindBuilder::Binview {
+                hashes: PrimitiveArrayBuilder::new(s.hashes.dtype().clone()),
+                keys: BinaryViewArrayBuilder::new(s.keys.dtype().clone()),
+                null_is_valid: s.null_is_valid,
+            },
+        })
+    }
+
+    pub fn len(&self) -> usize {
+        match &self.0 {
+            KindBuilder::RowEncoded { hashes, .. } | KindBuilder::Binview { hashes, .. } => {
+                hashes.len()
+            },
+            KindBuilder::KeyRows(b) => b.len(),
+            KindBuilder::Single { keys, .. } => keys.len(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn reserve(&mut self, additional: usize) {
+        match &mut self.0 {
+            KindBuilder::RowEncoded { hashes, keys } => {
+                hashes.reserve(additional);
+                keys.reserve(additional);
+            },
+            KindBuilder::KeyRows(b) => b.reserve(additional),
+            KindBuilder::Single { keys, .. } => keys.reserve(additional),
+            KindBuilder::Binview { hashes, keys, .. } => {
+                hashes.reserve(additional);
+                keys.reserve(additional);
+            },
+        }
+    }
+
+    /// # Safety
+    /// The rows must be in-bounds. The keys must have the kind and key schema of this builder.
+    pub unsafe fn gather_extend(&mut self, keys: &HashKeys, rows: &[IdxSize]) {
+        match (&mut self.0, keys) {
+            (KindBuilder::RowEncoded { hashes, keys: b }, HashKeys::RowEncoded(s)) => {
+                hashes.gather_extend(&s.hashes, rows, ShareStrategy::Never);
+                b.gather_extend(&s.keys, rows, ShareStrategy::Never);
+            },
+            (KindBuilder::KeyRows(b), HashKeys::KeyRows(s)) => b.gather_extend(s, rows),
+            (KindBuilder::Single { keys: b, .. }, HashKeys::Single(s)) => {
+                b.gather_extend(&s.keys, rows, ShareStrategy::Never);
+            },
+            (
+                KindBuilder::Binview {
+                    hashes, keys: b, ..
+                },
+                HashKeys::Binview(s),
+            ) => {
+                hashes.gather_extend(&s.hashes, rows, ShareStrategy::Never);
+                b.gather_extend(&s.keys, rows, ShareStrategy::Never);
+            },
+            _ => panic!("appended keys must be of the kind of the builder"),
+        }
+    }
+
+    /// Takes the appended rows as one `HashKeys`, leaving the builder empty.
+    pub fn freeze_reset(&mut self) -> HashKeys {
+        match &mut self.0 {
+            KindBuilder::RowEncoded { hashes, keys } => HashKeys::RowEncoded(RowEncodedKeys {
+                hashes: hashes.freeze_reset(),
+                keys: keys.freeze_reset(),
+            }),
+            KindBuilder::KeyRows(b) => HashKeys::KeyRows(b.freeze_reset()),
+            KindBuilder::Single {
+                random_state,
+                name,
+                keys,
+                null_is_valid,
+            } => HashKeys::Single(SingleKeys {
+                random_state: random_state.clone(),
+                keys: keys.freeze_reset(name.clone()),
+                null_is_valid: *null_is_valid,
+            }),
+            KindBuilder::Binview {
+                hashes,
+                keys,
+                null_is_valid,
+            } => HashKeys::Binview(BinviewKeys {
+                hashes: hashes.freeze_reset(),
+                keys: keys.freeze_reset(),
+                null_is_valid: *null_is_valid,
+            }),
         }
     }
 }
