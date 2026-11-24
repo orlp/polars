@@ -6022,6 +6022,7 @@ impl SQLContext {
             // Semi and anti joins reject conditions other than key pairs, so comparisons where
             // nulls compare equal (`IS NOT DISTINCT FROM`) become keys here; other joins leave
             // this to the optimizer. Extra keys would also get nulls equal, so there must be none.
+            #[cfg(feature = "semi_anti_join")]
             Some(JoinConstraint::On(expr))
                 if matches!(join_type, JoinType::Semi | JoinType::Anti)
                     && extra_keys.0.is_empty()
